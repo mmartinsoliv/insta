@@ -1,8 +1,17 @@
 'use client'
-import { FormEvent, useState } from 'react'
-import { Button, Form, Input } from '@/components'
-import useForm from '@/hooks/useForm'
-import useFetch from '@/hooks/useForm'
+import { useContext } from 'react'
+import { useForm, SubmitHandler, Controller } from 'react-hook-form'
+import { yupResolver } from '@hookform/resolvers/yup';
+
+import { Button, Input } from '@/components'
+
+import { schemaSignUp } from '@/utils/validation'
+
+import useFetch from '@/hooks/useFetch';
+
+import { USER_POST } from '@/api'
+
+import { UserContext } from '@/context/userContext'
 
 type FormData = {
   username: string
@@ -11,69 +20,40 @@ type FormData = {
 }
 
 const SignIn = () => {
+  const { control, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
+    resolver: yupResolver(schemaSignUp)
+  });
 
-  const [user, setUser] = useState<FormData>({
-    username: '',
-    email: '',
-    password: ''
-  })
+  const { userLogin } = useContext(UserContext);
 
-  const { loading, error, request } = useFetch()
+  const { request } = useFetch()
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
-    console.log('Form submitted!', user);
-    const data = await fetch('https://dogsapi.origamid.dev/json/api/user', {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      method: 'POST',
-      body: JSON.stringify(user)
+  const onSubmit: SubmitHandler<FormData> = async (data) => {
+    const { url, options } = USER_POST({
+      username: data.username,
+      email: data.email,
+      password: data.password
     })
 
-    const response = await data.json()
+    const { response } = await request(url, options)
 
-    console.log('resposta', response)
+    if(response?.ok) userLogin(data.username, data.password)
+
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-     const { name, value } = e.target
-     setUser((prevValues) => ({
-      ...prevValues,
-      [name]: value
-     }))
-  }
-
-
-  const inputProps = [
-    {
-      name: 'username',
-      type: 'text',
-      placeholder: 'Username',
-      value: user.username,
-    },
-    {
-      name: 'email',
-      type: 'email',
-      placeholder: 'E-mail',
-      value: user.email,
-    },
-    {
-      name: 'password',
-      type: 'password',
-      placeholder: 'Password',
-      value: user.password,
-    },
-  ];
+  const fields = watch(['username', 'email', 'password'])
 
   return (
     <>
       <h1 aria-label="form title" role="heading" className="text-center text-2xl font-mono mt-28 mb-8">Sign up to InstaPets</h1>
-      <form role="form" className="flex flex-col items-center gap-5 w-80 m-[auto]" onSubmit={handleSubmit}>
-        {inputProps.map(input => (
-          <Input key={input.name} onChange={handleInputChange}  {...input} />
-        ))}
-        <Button>Sign up</Button>
+      <form role="form" className="flex flex-col items-center gap-5 w-80 m-[auto]" onSubmit={handleSubmit(onSubmit)}>
+        <Controller name='username' control={control} render={({ field }) => <Input type="text" placeholder='username' {...field} />} />
+        {errors.username && <p>{errors.username.message}</p>}
+        <Controller name='email' control={control} render={({ field }) => <Input type="email" placeholder='email' {...field} />} />
+        {errors.email && <p>{errors.email.message}</p>}
+        <Controller name='password' control={control} render={({ field }) => <Input type="password" placeholder='password' {...field} />} />
+        {errors.password && <p>{errors.password.message}</p>}
+        <Button type='submit'>Sign up</Button>
       </form>
    </>
   )
